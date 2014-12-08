@@ -40,7 +40,7 @@
 
 namespace CRFPP {
 // helper functions defined in the paper
-inline double sigma(double x) {
+inline double sgn(double x) {
   if (x > 0) return 1.0;
   else if (x < 0) return -1.0;
   return 0.0;

@@ -42,7 +42,7 @@ static const int lb3_1_mp = 6;
 static const int lb3_1_lp = 6;
 
 // inline double pi(double x, double y) {
-//   return CRFPP::sigma(x) == CRFPP::sigma(y) ?x : 0.0;
+//   return CRFPP::sgn(x) == CRFPP::sgn(y) ? x : 0.0;
 // }
 
 inline void daxpy_(int n, double da, const double *dx, double *dy) {
@@ -396,7 +396,7 @@ void LBFGS::pseudo_gradient(int size,
         v[i] = 0;
       }
     }  else {
-      v[i] = g[i] + C * sigma(x[i]);
+      v[i] = g[i] + C * sgn(x[i]);
     }
   }
 }
@@ -455,7 +455,7 @@ void LBFGS::lbfgs_optimize(int size,
     info = 0;
     if (orthant) {
       for (int i = 1; i <= size; ++i) {
-        xi[i] = (x[i] != 0 ? sigma(x[i]) : sigma(-v[i]));
+        xi[i] = (x[i] != 0 ? sgn(x[i]) : sgn(-v[i]));
       }
     }
     if (iter == 1) goto L165;
@@ -510,7 +510,7 @@ void LBFGS::lbfgs_optimize(int size,
 
     if (orthant) {
       for (int i = 1; i <= size; ++i) {
-        w[i] = (sigma(w[i]) == sigma(-v[i]) ? w[i] : 0);
+        w[i] = (sgn(w[i]) == sgn(-v[i]) ? w[i] : 0);
       }
     }
     // STORE THE NEW SEARCH DIRECTION
@@ -536,7 +536,7 @@ void LBFGS::lbfgs_optimize(int size,
     if (info == -1) {
       if (orthant) {
         for (int i = 1; i <= size; ++i) {
-          x[i] = (sigma(x[i]) == sigma(xi[i]) ? x[i] : 0);
+          x[i] = (sgn(x[i]) == sgn(xi[i]) ? x[i] : 0);
         }
       }
       *iflag = 1;  // next value
