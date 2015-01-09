@@ -85,15 +85,20 @@ class FeatureIndex {
                  const char *pattern,
                  size_t pos, const TaggerImpl &tagger) const;
 
+  // number of feature function
   mutable unsigned int      maxid_;
+  // parameters to learn
   const double             *alpha_;
   const float              *alpha_float_;
   double                    cost_factor_;
+  // column number exclude label in train file
   unsigned int              xsize_;
   bool check_max_xsize_;
+  // column number used in feature template file
   mutable unsigned int      max_xsize_;
   std::vector<std::string>  unigram_templs_;
   std::vector<std::string>  bigram_templs_;
+  // labels
   std::vector<std::string>  y_;
   std::string               templs_;
   whatlog                   what_;
@@ -102,16 +107,21 @@ class FeatureIndex {
 class EncoderFeatureIndex: public FeatureIndex {
  public:
   bool open(const char *template_filename,
-            const char *model_filename);
+            const char *train_filename);
   bool save(const char *filename, bool emit_textmodelfile);
   bool convert(const char *text_filename,
                const char *binary_filename);
   void shrink(size_t freq, Allocator *allocator);
+  void dump();
 
  private:
   int getID(const char *str) const;
   bool openTemplate(const char *filename);
   bool openTagSet(const char *filename);
+  // key: 'feature'
+  // value:
+  //   first: start id of 'feature function' associated with current 'feature'
+  //   second: frequence
   mutable std::map<std::string, std::pair<int, unsigned int> > dic_;
 };
 

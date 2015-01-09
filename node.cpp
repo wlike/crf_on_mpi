@@ -16,7 +16,7 @@ void Node::calcAlpha() {
   alpha = 0.0;
   for (const_Path_iterator it = lpath.begin(); it != lpath.end(); ++it) {
     alpha = logsumexp(alpha,
-                      (*it)->cost +(*it)->lnode->alpha,
+                      (*it)->cost + (*it)->lnode->alpha,
                       (it == lpath.begin()));
   }
   alpha += cost;
@@ -26,7 +26,7 @@ void Node::calcBeta() {
   beta = 0.0;
   for (const_Path_iterator it = rpath.begin(); it != rpath.end(); ++it) {
     beta = logsumexp(beta,
-                     (*it)->cost +(*it)->rnode->beta,
+                     (*it)->cost + (*it)->rnode->beta,
                      (it == rpath.begin()));
   }
   beta += cost;

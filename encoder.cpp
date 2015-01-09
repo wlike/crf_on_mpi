@@ -69,11 +69,11 @@ bool toLower(std::string *s) {
 class CRFEncoderThread: public thread {
  public:
   TaggerImpl **x;
-  unsigned short start_i;
+  unsigned short start_i;  // start sentence id assigned to this thread
   unsigned short thread_num;
   int zeroone;
   int err;
-  size_t size;
+  size_t size;  // total sentence number
   double obj;
   std::vector<double> expected;
 
@@ -213,7 +213,7 @@ bool runCRF(const std::vector<TaggerImpl* > &x,
     thread[i].expected.resize(feature_index->size());
   }
 
-  size_t all = 0;
+  size_t all = 0;  // tags/tokens number
   for (size_t i = 0; i < x.size(); ++i) {
     all += x[i]->size();
   }
@@ -240,23 +240,23 @@ bool runCRF(const std::vector<TaggerImpl* > &x,
     }
 
     size_t num_nonzero = 0;
-    if (orthant) {   // L1
+    if (orthant) {  // L1 regularization
       for (size_t k = 0; k < feature_index->size(); ++k) {
         thread[0].obj += std::abs(alpha[k] / C);
         if (alpha[k] != 0.0) {
           ++num_nonzero;
         }
       }
-    } else {
+    } else {  // L2 regularization
       num_nonzero = feature_index->size();
       for (size_t k = 0; k < feature_index->size(); ++k) {
-        thread[0].obj += (alpha[k] * alpha[k] /(2.0 * C));
+        thread[0].obj += (alpha[k] * alpha[k] / (2.0 * C));
         thread[0].expected[k] += alpha[k] / C;
       }
     }
 
     double diff = (itr == 0 ? 1.0 :
-                   std::abs(old_obj - thread[0].obj)/old_obj);
+                   std::abs(old_obj - thread[0].obj) / old_obj);
     std::cout << "iter="  << itr
               << " terr=" << 1.0 * thread[0].err / all
               << " serr=" << 1.0 * thread[0].zeroone / x.size()
@@ -286,7 +286,7 @@ bool runCRF(const std::vector<TaggerImpl* > &x,
   return true;
 }
 
-bool Encoder::convert(const char* textfilename,
+bool Encoder::convert(const char *textfilename,
                       const char *binaryfilename) {
   EncoderFeatureIndex feature_index;
   CHECK_FALSE(feature_index.convert(textfilename, binaryfilename))
@@ -319,7 +319,7 @@ bool Encoder::learn(const char *templfile,
 #endif
 
   if (algorithm == MIRA && thread_num > 1) {
-    std::cerr <<  "MIRA doesn't support multi-thrading. use thread_num=1"
+    std::cerr << "MIRA doesn't support multi-thrading. use thread_num=1"
               << std::endl;
   }
 
@@ -365,7 +365,7 @@ bool Encoder::learn(const char *templfile,
       _x->set_thread_id(line % thread_num);
 
       if (++line % 100 == 0) {
-        std::cout << line << ".. " << std::flush;
+        std::cout << line << "... " << std::flush;
       }
     }
 
@@ -375,17 +375,17 @@ bool Encoder::learn(const char *templfile,
 
   feature_index.shrink(freq, &allocator);
 
-  std::vector <double> alpha(feature_index.size());           // parameter
+  std::vector<double> alpha(feature_index.size());  // parameters
   std::fill(alpha.begin(), alpha.end(), 0.0);
   feature_index.set_alpha(&alpha[0]);
 
-  std::cout << "Number of sentences: " << x.size() << std::endl;
-  std::cout << "Number of features:  " << feature_index.size() << std::endl;
-  std::cout << "Number of thread(s): " << thread_num << std::endl;
-  std::cout << "Freq:                " << freq << std::endl;
-  std::cout << "eta:                 " << eta << std::endl;
-  std::cout << "C:                   " << C << std::endl;
-  std::cout << "shrinking size:      " << shrinking_size
+  std::cout << "Number of sentences:         " << x.size() << std::endl;
+  std::cout << "Number of feature functions: " << feature_index.size() << std::endl;
+  std::cout << "Number of thread(s):         " << thread_num << std::endl;
+  std::cout << "Freq:                        " << freq << std::endl;
+  std::cout << "eta:                         " << eta << std::endl;
+  std::cout << "C:                           " << C << std::endl;
+  std::cout << "shrinking size:              " << shrinking_size
             << std::endl;
 
   progress_timer pg;

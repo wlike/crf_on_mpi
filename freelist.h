@@ -23,13 +23,14 @@ class charLength {
   size_t operator()(const char *str) const  { return strlen(str) + 1; }
 };
 
+// memory arranged in matrix form
 template <class T, class LengthFunc = Length<T> >
 class FreeList {
  private:
   std::vector <T *> freeList;
-  size_t pi;
-  size_t li;
-  size_t size;
+  size_t pi;    // col index
+  size_t li;    // row index
+  size_t size;  // column num
 
  public:
   void free() { li = pi = 0; }

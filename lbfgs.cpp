@@ -395,12 +395,11 @@ void LBFGS::pseudo_gradient(int size,
       } else {
         v[i] = 0;
       }
-    }  else {
+    } else {
       v[i] = g[i] + C * sgn(x[i]);
     }
   }
 }
-
 
 void LBFGS::lbfgs_optimize(int size,
                            int msize,

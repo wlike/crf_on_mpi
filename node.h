@@ -13,12 +13,12 @@
 #include "path.h"
 #include "common.h"
 
-#define LOG2               0.69314718055
-#define MINUS_LOG_EPSILON  50
+#define LOG2              0.69314718055
+#define MINUS_LOG_EPSILON 50
 
 namespace CRFPP {
 // log(exp(x) + exp(y));
-//    this can be used recursivly
+//    this can be used recursively
 // e.g., log(exp(log(exp(x) + exp(y))) + exp(z)) =
 // log(exp (x) + exp(y) + exp(z))
 inline double logsumexp(double x, double y, bool flg) {
@@ -60,6 +60,7 @@ struct Node {
   }
 
   void shrink() {
+    // free unused allocated memory in vector
     std::vector<Path *>(lpath).swap(lpath);
     std::vector<Path *>(rpath).swap(rpath);
   }

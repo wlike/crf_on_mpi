@@ -23,6 +23,7 @@ class FeatureCache: public std::vector <int *> {
 
   void add(const std::vector<int> &);
   void shrink(std::map<int, int> *);
+  void dump();
 
   explicit FeatureCache(): feature_freelist_(8192 * 16) {}
   virtual ~FeatureCache() {}

@@ -6,6 +6,7 @@
 //  Copyright(C) 2005-2007 Taku Kudo <taku@chasen.org>
 //
 #include <algorithm>
+#include <iostream>
 #include "feature_cache.h"
 
 namespace CRFPP {
@@ -29,6 +30,16 @@ void FeatureCache::shrink(std::map<int, int> *old2new) {
     newf.push_back(-1);
     std::copy(newf.begin(), newf.end(), (*this)[i]);
   }
-  return;
 }
+
+void FeatureCache::dump() {
+  std::cout << "feature_cache_size: " << size() << std::endl;
+  for (size_t i = 0; i < size(); ++i) {
+    for (int *f = (*this)[i]; *f != -1; ++f) {
+      std::cout << (*f) << ',';
+    }
+    std::cout << std::endl;
+  }
+}
+
 }

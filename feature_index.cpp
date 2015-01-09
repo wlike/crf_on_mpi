@@ -189,6 +189,15 @@ bool EncoderFeatureIndex::openTagSet(const char *filename) {
   return true;
 }
 
+void EncoderFeatureIndex::dump() {
+  std::cout << "feature_num: " << dic_.size() << std::endl;
+  for (std::map<std::string, std::pair<int, unsigned int> >::iterator
+      it = dic_.begin(); it != dic_.end(); ++it) {
+    std::cout << "[" << it->first << "],(" << it->second.first
+      << ',' << it->second.second << ")\n";
+  }
+}
+
 bool DecoderFeatureIndex::open(const char *model_filename) {
   CHECK_FALSE(mmap_.open(model_filename)) << mmap_.what();
   return openFromArray(mmap_.begin(), mmap_.file_size());
@@ -439,7 +448,7 @@ bool EncoderFeatureIndex::save(const char *filename,
   bofs.write(const_cast<char *>(templ_str.data()), templ_str.size());
   bofs.write(reinterpret_cast<const char *>(da.array()), dsize);
 
-  for (size_t i  = 0; i < maxid_; ++i) {
+  for (size_t i = 0; i < maxid_; ++i) {
     float alpha = static_cast<float>(alpha_[i]);
     bofs.write(reinterpret_cast<char *>(&alpha), sizeof(alpha));
   }
@@ -510,7 +519,7 @@ void FeatureIndex::calcCost(Node *n) const {
 #define ADD_COST(T, A)                                                  \
   do { T c = 0;                                                               \
     for (const int *f = n->fvector; *f != -1; ++f) { c += (A)[*f + n->y];  }  \
-    n->cost =cost_factor_ *(T)c; } while (0)
+    n->cost = cost_factor_ * (T)c; } while (0)
 
   if (alpha_float_) {
     ADD_COST(float,  alpha_float_);
@@ -528,7 +537,7 @@ void FeatureIndex::calcCost(Path *p) const {
     for (const int *f = p->fvector; *f != -1; ++f) {            \
       c += (A)[*f + p->lnode->y * y_.size() + p->rnode->y];     \
     }                                                           \
-    p->cost =cost_factor_*(T)c; }
+    p->cost = cost_factor_ * (T)c; } while (0)
 
   if (alpha_float_) {
     ADD_COST(float,  alpha_float_);

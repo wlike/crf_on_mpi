@@ -130,6 +130,7 @@ void FeatureIndex::rebuildFeatures(TaggerImpl *tagger) const {
   allocator->clear_freelist(thread_id);
   FeatureCache *feature_cache = allocator->feature_cache();
 
+  // unigram features
   for (size_t cur = 0; cur < tagger->size(); ++cur) {
     const int *f = (*feature_cache)[fid++];
     for (size_t i = 0; i < y_.size(); ++i) {
@@ -142,6 +143,7 @@ void FeatureIndex::rebuildFeatures(TaggerImpl *tagger) const {
     }
   }
 
+  // bigram features
   for (size_t cur = 1; cur < tagger->size(); ++cur) {
     const int *f = (*feature_cache)[fid++];
     for (size_t j = 0; j < y_.size(); ++j) {

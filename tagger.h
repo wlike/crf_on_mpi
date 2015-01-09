@@ -65,7 +65,7 @@ class TaggerImpl : public Tagger {
     return allocator_;
   }
 
-  void   set_feature_id(size_t id) { feature_id_  = id; }
+  void   set_feature_id(size_t id) { feature_id_ = id; }
   size_t feature_id() const { return feature_id_; }
   void   set_thread_id(unsigned short id) { thread_id_ = id; }
   unsigned short thread_id() const { return thread_id_; }
@@ -198,7 +198,7 @@ class TaggerImpl : public Tagger {
   };
 
   enum { TEST, TEST_SHARED, LEARN };
-  unsigned int    mode_ ;
+  unsigned int    mode_;
   unsigned int    vlevel_;
   unsigned int    nbest_;
   size_t          ysize_;

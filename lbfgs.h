@@ -104,10 +104,10 @@ class LBFGS {
 
     if (iflag_ == 0) {
       clear();
-      return 0;   // terminate
+      return 0;  // terminate
     }
 
-    return 1;   // evaluate next f and g
+    return 1;  // evaluate next f and g
   }
 };
 }

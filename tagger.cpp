@@ -392,6 +392,7 @@ double TaggerImpl::penalty(size_t i, size_t j) const {
 bool TaggerImpl::shrink() {
   CHECK_FALSE(feature_index_->buildFeatures(this))
       << feature_index_->what();
+  // free unused allocated memory in vector
   std::vector<std::vector<const char *> >(x_).swap(x_);
   std::vector<std::vector<Node *> >(node_).swap(node_);
   std::vector<unsigned short int>(answer_).swap(answer_);
@@ -514,7 +515,7 @@ void TaggerImpl::forwardbackward() {
     }
   }
 
-  for (int i = static_cast<int>(x_.size() - 1); i >= 0;  --i) {
+  for (int i = static_cast<int>(x_.size() - 1); i >= 0; --i) {
     for (size_t j = 0; j < ysize_; ++j) {
       node_[i][j]->calcBeta();
     }
@@ -524,18 +525,16 @@ void TaggerImpl::forwardbackward() {
   for (size_t j = 0; j < ysize_; ++j) {
     Z_ = logsumexp(Z_, node_[0][j]->beta, j == 0);
   }
-
-  return;
 }
 
 void TaggerImpl::viterbi() {
-  for (size_t i = 0;   i < x_.size(); ++i) {
+  for (size_t i = 0; i < x_.size(); ++i) {
     for (size_t j = 0; j < ysize_; ++j) {
       double bestc = -1e37;
       Node *best = 0;
       const std::vector<Path *> &lpath = node_[i][j]->lpath;
       for (const_Path_iterator it = lpath.begin(); it != lpath.end(); ++it) {
-        double cost = (*it)->lnode->bestCost +(*it)->cost +
+        double cost = (*it)->lnode->bestCost + (*it)->cost +
             node_[i][j]->cost;
         if (cost > bestc) {
           bestc = cost;
@@ -571,13 +570,13 @@ double TaggerImpl::gradient(double *expected) {
   forwardbackward();
   double s = 0.0;
 
-  for (size_t i = 0;   i < x_.size(); ++i) {
+  for (size_t i = 0; i < x_.size(); ++i) {
     for (size_t j = 0; j < ysize_; ++j) {
       node_[i][j]->calcExpectation(expected, Z_, ysize_);
     }
   }
 
-  for (size_t i = 0;   i < x_.size(); ++i) {
+  for (size_t i = 0; i < x_.size(); ++i) {
     for (const int *f = node_[i][answer_[i]]->fvector; *f != -1; ++f) {
       --expected[*f + answer_[i]];
     }
@@ -586,7 +585,7 @@ double TaggerImpl::gradient(double *expected) {
     for (const_Path_iterator it = lpath.begin(); it != lpath.end(); ++it) {
       if ((*it)->lnode->y == answer_[(*it)->lnode->x]) {
         for (const int *f = (*it)->fvector; *f != -1; ++f) {
-          --expected[*f +(*it)->lnode->y * ysize_ +(*it)->rnode->y];
+          --expected[*f + (*it)->lnode->y * ysize_ + (*it)->rnode->y];
         }
         s += (*it)->cost;  // BIGRAM COST
         break;
@@ -596,7 +595,7 @@ double TaggerImpl::gradient(double *expected) {
 
   viterbi();  // call for eval()
 
-  return Z_ - s ;
+  return Z_ - s;
 }
 
 double TaggerImpl::collins(double *collins) {
@@ -843,12 +842,12 @@ const char *getLastError() {
 namespace {
 int crfpp_test(const Param &param) {
   if (param.get<bool>("version")) {
-    std::cout <<  param.version();
+    std::cout << param.version();
     return -1;
   }
 
   if (param.get<bool>("help")) {
-    std::cout <<  param.help();
+    std::cout << param.help();
     return -1;
   }
 
