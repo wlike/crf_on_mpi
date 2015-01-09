@@ -197,7 +197,6 @@ bool runCRF(const std::vector<TaggerImpl* > &x,
             size_t maxitr,
             float C,
             double eta,
-            unsigned short shrinking_size,
             unsigned short thread_num,
             bool orthant) {
   double old_obj = 1e+37;
@@ -399,13 +398,13 @@ bool Encoder::learn(const char *templfile,
       break;
     case CRF_L2:
       if (!runCRF(x, &feature_index, &alpha[0],
-                  maxitr, C, eta, shrinking_size, thread_num, false)) {
+                  maxitr, C, eta, thread_num, false)) {
         WHAT_ERROR("CRF_L2 execute error");
       }
       break;
     case CRF_L1:
       if (!runCRF(x, &feature_index, &alpha[0],
-                  maxitr, C, eta, shrinking_size, thread_num, true)) {
+                  maxitr, C, eta, thread_num, true)) {
         WHAT_ERROR("CRF_L1 execute error");
       }
       break;
@@ -444,7 +443,7 @@ const CRFPP::Option long_options[] = {
    "number of threads (default auto-detect)" },
   {"shrinking-size", 'H', "20", "INT",
    "set INT for number of iterations variable needs to "
-   " be optimal before considered for shrinking. (default 20)" },
+   "be optimal before considered for shrinking in MIRA. (default 20)" },
   {"version",  'v', 0,        0,       "show the version and exit" },
   {"help",     'h', 0,        0,       "show this help and exit" },
   {0, 0, 0, 0, 0}
