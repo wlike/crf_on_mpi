@@ -1,0 +1,27 @@
+CC=mpic++
+CFLAGS=-O2 -g -Wall -DHAVE_CONFIG_H -DUSE_MPI
+
+TARGETS=mpi_adjust_corpus mpi_split_corpus mpi_gen_feature_map mpi_crf_learn
+
+SRC=encoder.cpp feature.cpp feature_cache.cpp feature_index.cpp lbfgs.cpp libcrfpp.cpp node.cpp param.cpp path.cpp tagger.cpp mpi_comm.cpp
+OBJS=$(patsubst %.cpp, %.o, $(SRC))
+
+all: $(TARGETS)
+
+$(OBJS): %.o : %.cpp
+	$(CC) -c $(CFLAGS) $< -o $@
+
+mpi_adjust_corpus: mpi_adjust_corpus.cpp
+	g++ -o $@ $(CFLAGS) $^
+
+mpi_split_corpus: mpi_split_corpus.cpp
+	g++ -o $@ $(CFLAGS) $^
+
+mpi_gen_feature_map: mpi_gen_feature_map.cpp $(OBJS)
+	$(CC) -o $@ $(CFLAGS) $^ -lpthread
+
+mpi_crf_learn: mpi_crf_learn.cpp $(OBJS)
+	$(CC) -o $@ $(CFLAGS) $^ -lpthread
+
+clean:
+	rm -rf *.o $(TARGETS)
