@@ -5,10 +5,6 @@
 //
 //  Copyright(C) 2005-2007 Taku Kudo <taku@chasen.org>
 //
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-
 #include <algorithm>
 #include <fstream>
 #include "param.h"

@@ -17,18 +17,18 @@
 #include <algorithm>
 #include <cmath>
 
-#if defined(_WIN32) && !defined(__CYGWIN__)
-#define NOMINMAX
-#include <windows.h>
-#endif
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#define COPYRIGHT  "CRF++: Yet Another CRF Tool Kit\nCopyright (C) "    \
-  "2005-2013 Taku Kudo, All rights reserved.\n"
-#define MODEL_VERSION 100
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
+#if defined(_WIN32) && !defined(__CYGWIN__)
+#define NOMINMAX
+#include <windows.h>
+#endif
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
 # define OUTPUT_MODE std::ios::binary|std::ios::out
@@ -36,6 +36,9 @@
 # define OUTPUT_MODE std::ios::out
 #endif
 
+#define COPYRIGHT  "CRF++: Yet Another CRF Tool Kit\nCopyright (C) "    \
+  "2005-2013 Taku Kudo, All rights reserved.\n"
+#define MODEL_VERSION 100
 #define BUF_SIZE 8192
 #define EPS (1E-6)
 
