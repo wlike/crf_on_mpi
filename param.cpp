@@ -52,7 +52,6 @@ void init_param(std::string *help,
   }
 
   *help += '\n';
-  return;
 }
 }  // namespace
 

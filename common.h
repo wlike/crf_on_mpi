@@ -37,6 +37,7 @@
 #endif
 
 #define BUF_SIZE 8192
+#define EPS (1E-6)
 
 namespace CRFPP {
 // helper functions defined in the paper
@@ -44,6 +45,46 @@ inline double sgn(double x) {
   if (x > 0) return 1.0;
   else if (x < 0) return -1.0;
   return 0.0;
+}
+
+inline bool zero(double x) {
+  return (fabs(x) <= EPS);
+}
+
+inline size_t getCpuCount() {
+  size_t result = 1;
+#if defined(_WIN32) && !defined(__CYGWIN__)
+  SYSTEM_INFO si;
+  ::GetSystemInfo(&si);
+  result = si.dwNumberOfProcessors;
+#else
+#ifdef HAVE_SYS_CONF_SC_NPROCESSORS_CONF
+  const long n = sysconf(_SC_NPROCESSORS_CONF);
+  if (n == -1) {
+    return 1;
+  }
+  result = static_cast<size_t>(n);
+#endif
+#endif
+  return result;
+}
+
+inline unsigned short getThreadSize(unsigned short size) {
+  if (size == 0) {
+    return static_cast<unsigned short>(getCpuCount());
+  }
+  return size;
+}
+
+inline bool toLower(std::string *s) {
+  for (size_t i = 0; i < s->size(); ++i) {
+    char c = (*s)[i];
+    if ((c >= 'A') && (c <= 'Z')) {
+      c += 'a' - 'A';
+      (*s)[i] = c;
+    }
+  }
+  return true;
 }
 
 template <class Iterator>
@@ -125,7 +166,7 @@ inline size_t tokenize2(char *str, const char *del,
   return size;
 }
 
-void inline dtoa(double val, char *s) {
+inline void dtoa(double val, char *s) {
   std::sprintf(s, "%-16f", val);
   char *p = s;
   for (; *p != ' '; ++p) {}
@@ -257,7 +298,7 @@ class wlog {
  private:
   whatlog *what_;
 };
-}  // CRFPP
+}  // namespace CRFPP
 
 #define WHAT what_.stream_
 
@@ -269,5 +310,16 @@ class wlog {
 #define CHECK_DIE(condition) \
 (condition) ? 0 : die() & std::cerr << __FILE__ << \
 "(" << __LINE__ << ") [" << #condition << "] "
+
+#ifdef USE_MPI
+#include <stdint.h>
+#include <map>
+struct WorkerInfo {
+    uint8_t data_part_id;
+    uint32_t feature_function_num;
+    // local_id => <global_id, function_num>
+    std::map<uint32_t, std::pair<uint32_t, uint8_t> > ids_map;
+};
+#endif  // USE_MPI
 
 #endif

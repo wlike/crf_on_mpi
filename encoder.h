@@ -9,6 +9,9 @@
 #define CRFPP_ENCODER_H_
 
 #include "common.h"
+#ifdef USE_MPI
+#include "mpi_comm.h"
+#endif  // USE_MPI
 
 namespace CRFPP {
 class Encoder {
@@ -19,15 +22,27 @@ class Encoder {
              bool, size_t, size_t,
              double, double,
              unsigned short,
-             unsigned short, int);
+             unsigned short, int
+#ifdef USE_MPI
+             , const std::vector<std::string> &
+#endif  // USE_MPI
+             );
 
   bool convert(const char *text_file,
-               const char* binary_file);
+               const char *binary_file);
 
   const char* what() { return what_.str(); }
 
+#ifdef USE_MPI
+  void setMpiComm(MpiComm *comm) { comm_ = comm; }
+#endif  // USE_MPI
+
  private:
   whatlog what_;
+#ifdef USE_MPI
+  uint8_t data_part_;
+  MpiComm *comm_;
+#endif  // USE_MPI
 };
 }
 #endif

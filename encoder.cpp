@@ -9,11 +9,6 @@
 #include <unistd.h>
 #endif
 
-#if defined(_WIN32) && !defined(__CYGWIN__)
-#define NOMINMAX
-#include <windows.h>
-#endif
-
 #include <algorithm>
 #include <fstream>
 #include "param.h"
@@ -27,44 +22,6 @@
 #include "thread.h"
 
 namespace CRFPP {
-namespace {
-
-inline size_t getCpuCount() {
-  size_t result = 1;
-#if defined(_WIN32) && !defined(__CYGWIN__)
-  SYSTEM_INFO si;
-  ::GetSystemInfo(&si);
-  result = si.dwNumberOfProcessors;
-#else
-#ifdef HAVE_SYS_CONF_SC_NPROCESSORS_CONF
-  const long n = sysconf(_SC_NPROCESSORS_CONF);
-  if (n == -1) {
-    return 1;
-  }
-  result = static_cast<size_t>(n);
-#endif
-#endif
-  return result;
-}
-
-unsigned short getThreadSize(unsigned short size) {
-  if (size == 0) {
-    return static_cast<unsigned short>(getCpuCount());
-  }
-  return size;
-}
-
-bool toLower(std::string *s) {
-  for (size_t i = 0; i < s->size(); ++i) {
-    char c = (*s)[i];
-    if ((c >= 'A') && (c <= 'Z')) {
-      c += 'a' - 'A';
-      (*s)[i] = c;
-    }
-  }
-  return true;
-}
-}
 
 class CRFEncoderThread: public thread {
  public:
@@ -198,10 +155,17 @@ bool runCRF(const std::vector<TaggerImpl* > &x,
             float C,
             double eta,
             unsigned short thread_num,
-            bool orthant) {
+            bool orthant
+#ifdef USE_MPI
+            , MpiComm *comm
+            , uint8_t data_part
+#endif  // USE_MPI
+            ) {
+#ifndef USE_MPI
   double old_obj = 1e+37;
   int    converge = 0;
   LBFGS lbfgs;
+#endif  // USE_MPI
   std::vector<CRFEncoderThread> thread(thread_num);
 
   for (size_t i = 0; i < thread_num; i++) {
@@ -218,6 +182,18 @@ bool runCRF(const std::vector<TaggerImpl* > &x,
   }
 
   for (size_t itr = 0; itr < maxitr; ++itr) {
+#ifdef USE_MPI
+    comm->Bcast();
+    std::cout << "[worker] itr:" << itr << ", flag:" << comm->GetFlag() << "\n";
+    if (1 == comm->GetFlag()) break;
+    std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", recv weight from master ...\n";
+    if (!comm->RecvWeightFromMaster(orthant, feature_index->size(),
+                feature_index->alpha())) {
+      std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", recv weight from master failed\n";
+      return false;
+    }
+    std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", recv weight from master complete\n";
+#endif  // USE_MPI
     for (size_t i = 0; i < thread_num; ++i) {
       thread[i].start();
     }
@@ -254,6 +230,7 @@ bool runCRF(const std::vector<TaggerImpl* > &x,
       }
     }
 
+#ifndef USE_MPI
     double diff = (itr == 0 ? 1.0 :
                    std::abs(old_obj - thread[0].obj) / old_obj);
     std::cout << "iter="  << itr
@@ -274,12 +251,39 @@ bool runCRF(const std::vector<TaggerImpl* > &x,
       break;  // 3 is ad-hoc
     }
 
-    if (lbfgs.optimize(feature_index->size(),
+    std::cout << "b_lbfgs[g]: ";
+    for (size_t i = 0; i < 10 && i < thread[0].expected.size(); ++i) {
+        std::cout << thread[0].expected[i] << ',';
+    }
+    std::cout << std::endl;
+    std::cout << "b_lbfgs[w]: ";
+    const double *b_alpha = feature_index->alpha();
+    for (size_t i = 0; i < 10 && i < feature_index->size(); ++i) {
+        std::cout << b_alpha[i] << ',';
+    }
+    std::cout << std::endl;
+    int ret = lbfgs.optimize(feature_index->size(),
                        &alpha[0],
                        thread[0].obj,
-                       &thread[0].expected[0], orthant, C) <= 0) {
+                       &thread[0].expected[0], orthant, C);
+    std::cout << "a_lbfgs[w]: ";
+    const double *a_alpha = feature_index->alpha();
+    for (size_t i = 0; i < 10 && i < feature_index->size(); ++i) {
+        std::cout << a_alpha[i] << ',';
+    }
+    std::cout << std::endl;
+    if (ret <= 0) {
       return false;
     }
+#else
+    std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", send to master ...\n";
+    if (!comm->SendGradientObjToMaster(&thread[0].expected[0],
+                feature_index->size(), thread[0].obj, data_part)) {
+      std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", send to master failed\n";
+      return false;
+    }
+    std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", send to master complete\n";
+#endif  // USE_MPI
   }
 
   return true;
@@ -304,7 +308,11 @@ bool Encoder::learn(const char *templfile,
                     double C,
                     unsigned short thread_num,
                     unsigned short shrinking_size,
-                    int algorithm) {
+                    int algorithm
+#ifdef USE_MPI
+                    , const std::vector<std::string> &y
+#endif  // USE_MPI
+                    ) {
   std::cout << COPYRIGHT << std::endl;
 
   CHECK_FALSE(eta > 0.0) << "eta must be > 0.0";
@@ -339,8 +347,19 @@ bool Encoder::learn(const char *templfile,
   CHECK_FALSE(feature_index.open(templfile, trainfile))
       << feature_index.what();
 
+#ifdef USE_MPI
+  feature_index.setY(y);
+#endif  // USE_MPI
+
   {
     progress_timer pg;
+
+#ifdef USE_MPI
+    // format: xxx_id
+    std::string str_trainfile(trainfile);
+    size_t pos = str_trainfile.find('_');
+    data_part_ = atoi(str_trainfile.substr(pos+1).c_str());
+#endif  // USE_MPI
 
     std::ifstream ifs(WPATH(trainfile));
     CHECK_FALSE(ifs) << "cannot open: " << trainfile;
@@ -398,13 +417,21 @@ bool Encoder::learn(const char *templfile,
       break;
     case CRF_L2:
       if (!runCRF(x, &feature_index, &alpha[0],
-                  maxitr, C, eta, thread_num, false)) {
+                  maxitr, C, eta, thread_num, false
+#ifdef USE_MPI
+                  , comm_, data_part_
+#endif  // USE_MPI
+                  )) {
         WHAT_ERROR("CRF_L2 execute error");
       }
       break;
     case CRF_L1:
       if (!runCRF(x, &feature_index, &alpha[0],
-                  maxitr, C, eta, thread_num, true)) {
+                  maxitr, C, eta, thread_num, true
+#ifdef USE_MPI
+                  , comm_, data_part_
+#endif  // USE_MPI
+                  )) {
         WHAT_ERROR("CRF_L1 execute error");
       }
       break;
@@ -415,9 +442,11 @@ bool Encoder::learn(const char *templfile,
     delete *it;
   }
 
+#ifndef USE_MPI
   if (!feature_index.save(modelfile, textmodelfile)) {
     WHAT_ERROR(feature_index.what());
   }
+#endif  // USE_MPI
 
   std::cout << "\nDone!";
 
@@ -449,6 +478,7 @@ const CRFPP::Option long_options[] = {
   {0, 0, 0, 0, 0}
 };
 
+#ifndef USE_MPI
 int crfpp_learn(const Param &param) {
   if (!param.help_version()) {
     return 0;
@@ -470,8 +500,8 @@ int crfpp_learn(const Param &param) {
   const bool           textmodel      = param.get<bool>("textmodel");
   const unsigned short thread         =
       CRFPP::getThreadSize(param.get<unsigned short>("thread"));
-  const unsigned short shrinking_size
-      = param.get<unsigned short>("shrinking-size");
+  const unsigned short shrinking_size =
+      param.get<unsigned short>("shrinking-size");
   std::string salgo = param.get<std::string>("algorithm");
 
   CRFPP::toLower(&salgo);
@@ -508,9 +538,12 @@ int crfpp_learn(const Param &param) {
 
   return 0;
 }
-}  // namespace
-}  // CRFPP
+#endif  // USE_MPI
 
+}  // namespace
+}  // namespace CRFPP
+
+#ifndef USE_MPI
 int crfpp_learn2(const char *argv) {
   CRFPP::Param param;
   param.open(argv, CRFPP::long_options);
@@ -522,4 +555,5 @@ int crfpp_learn(int argc, char **argv) {
   param.open(argc, argv, CRFPP::long_options);
   return CRFPP::crfpp_learn(param);
 }
+#endif  // USE_MPI
 

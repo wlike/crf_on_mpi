@@ -198,6 +198,21 @@ void EncoderFeatureIndex::dump() {
   }
 }
 
+#ifdef USE_MPI
+const std::map<std::string, std::pair<int, unsigned int> > &EncoderFeatureIndex::getFeatureIndex() {
+    return dic_;
+}
+
+void EncoderFeatureIndex::clear() {
+  unigram_templs_.clear();
+  bigram_templs_.clear();
+  y_.clear();
+  dic_.clear();
+  // reset feature function id
+  maxid_ = 0;
+}
+#endif  // USE_MPI
+
 bool DecoderFeatureIndex::open(const char *model_filename) {
   CHECK_FALSE(mmap_.open(model_filename)) << mmap_.what();
   return openFromArray(mmap_.begin(), mmap_.file_size());
@@ -252,7 +267,7 @@ bool DecoderFeatureIndex::openFromArray(const char *ptr, size_t size) {
   da_.set_array(const_cast<char *>(ptr));
   ptr += dsize;
 
-  alpha_float_ = reinterpret_cast<const float *>(ptr);
+  alpha_float_ = const_cast<float *>(reinterpret_cast<const float *>(ptr));
   ptr += sizeof(alpha_float_[0]) * maxid_;
 
   CHECK_FALSE(ptr == end) << "model file is broken.";

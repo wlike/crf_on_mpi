@@ -55,9 +55,9 @@ class FeatureIndex {
   size_t xsize() const { return xsize_; }
   size_t ysize() const { return y_.size(); }
   const char* y(size_t i) const { return y_[i].c_str(); }
-  void   set_alpha(const double *alpha) { alpha_ = alpha; }
-  const float *alpha_float() { return alpha_float_; }
-  const double *alpha() const { return alpha_; }
+  void   set_alpha(double *alpha) { alpha_ = alpha; }
+  float *alpha_float() { return alpha_float_; }
+  double *alpha() const { return alpha_; }
   void set_cost_factor(double cost_factor) { cost_factor_ = cost_factor; }
   double cost_factor() const { return cost_factor_; }
 
@@ -76,6 +76,11 @@ class FeatureIndex {
 
   const char *getTemplate() const;
 
+#ifdef USE_MPI
+  const std::vector<std::string> &getY() { return y_; }
+  void setY(const std::vector<std::string> &y) { y_ = y; }
+#endif  // USE_MPI
+
  protected:
   virtual int getID(const char *str) const = 0;
   const char *getIndex(const char *&p,
@@ -88,8 +93,8 @@ class FeatureIndex {
   // number of feature function
   mutable unsigned int      maxid_;
   // parameters to learn
-  const double             *alpha_;
-  const float              *alpha_float_;
+  double                   *alpha_;
+  float                    *alpha_float_;
   double                    cost_factor_;
   // column number exclude label in train file
   unsigned int              xsize_;
@@ -113,6 +118,10 @@ class EncoderFeatureIndex: public FeatureIndex {
                const char *binary_filename);
   void shrink(size_t freq, Allocator *allocator);
   void dump();
+#ifdef USE_MPI
+  void clear();
+  const std::map<std::string, std::pair<int, unsigned int> > &getFeatureIndex();
+#endif  // USE_MPI
 
  private:
   int getID(const char *str) const;

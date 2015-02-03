@@ -34,7 +34,7 @@ template <>
 std::string lexical_cast<std::string, std::string>(std::string arg) {
   return arg;
 }
-}
+}  // namespace
 
 struct Option {
   const char *name;
@@ -89,6 +89,6 @@ class Param {
   explicit Param() {}
   virtual ~Param() {}
 };
-}
+}  // namespace CRFPP
 
 #endif
