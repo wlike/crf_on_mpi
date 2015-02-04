@@ -317,6 +317,7 @@ class wlog {
 #ifdef USE_MPI
 #include <stdint.h>
 #include <map>
+#define SPY_NUM 15
 struct WorkerInfo {
     uint8_t data_part_id;
     uint32_t feature_function_num;

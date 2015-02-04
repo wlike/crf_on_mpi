@@ -1,6 +1,7 @@
 #include <fstream>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
+#include <set>
 
 #include "common.h"
 #include "encoder.h"
@@ -29,13 +30,15 @@ const Option long_options[] = {
   {"shrinking-size", 'H', "20", "INT",
    "set INT for number of iterations variable needs to "
    "be optimal before considered for shrinking. (default 20)" },
+  {"debug",    'd', 0,        0,       "print detail training info" },
   {"version",  'v', 0,        0,       "show the version and exit" },
   {"help",     'h', 0,        0,       "show this help and exit" },
   {0, 0, 0, 0, 0}
 };
 }  // namespace CRFPP
 
-bool loadFeatureIDMap(std::vector<WorkerInfo> &workers_info, uint32_t &total_function_num);
+bool loadLabels(const char *file, std::vector<std::string> &labels);
+bool loadFeatureIDMap(const char *file, std::vector<WorkerInfo> &workers_info, uint32_t &total_function_num);
 
 int main(int argc, char *argv[]) {
     CRFPP::Param param;
@@ -45,15 +48,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    const bool convert = param.get<bool>("convert");
-
-    const std::vector<std::string> &rest = param.rest_args();
-    if (param.get<bool>("help") ||
-            (convert && rest.size() != 2) || (!convert && rest.size() != 3)) {
-        std::cout << param.help();
-        return 0;
-    }
-
+    const bool           debug          = param.get<bool>("debug");
     const size_t         freq           = param.get<int>("freq");
     const size_t         maxiter        = param.get<int>("maxiter");
     const double         C              = param.get<float>("cost");
@@ -63,6 +58,7 @@ int main(int argc, char *argv[]) {
         CRFPP::getThreadSize(param.get<unsigned short>("thread"));
     const unsigned short shrinking_size =
         param.get<unsigned short>("shrinking-size");
+    const std::vector<std::string> &rest = param.rest_args();
     std::string salgo = param.get<std::string>("algorithm");
 
     CRFPP::toLower(&salgo);
@@ -86,7 +82,6 @@ int main(int argc, char *argv[]) {
 
     char host[MPI_MAX_PROCESSOR_NAME];
     int rank, size, hostlen;
-    //MPI_Status status;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -97,23 +92,26 @@ int main(int argc, char *argv[]) {
     else std::cout << " [worker]\n";
 
     // create MPI communicator
-    MpiComm *comm = new MpiComm();
+    MpiComm *comm = new MpiComm(debug);
 
     if (0 == rank) {  // master
         // load worker's info: feature id map
         uint32_t feature_function_num = 0;
         std::vector<WorkerInfo> workers_info;
-        if (!loadFeatureIDMap(workers_info, feature_function_num)) {
+        if (!loadFeatureIDMap(rest[3].c_str(), workers_info, feature_function_num)) {
             std::cerr << "Load feature id map on master failed" << std::endl;
             goto FAIL_EXIT;
         }
-        std::cout << "feature_function_num: " << feature_function_num << "\n";
+        if (debug) {
+            std::cout << "feature_function_num: " << feature_function_num << "\n";
+        }
         // initialize function's parameters & gradients
         std::vector<double> w(feature_function_num, 0.0);
         std::vector<double> g(feature_function_num, 0.0);
         // main control of tranining process
         double old_obj = 1e+37;
         int    converge = 0;
+        size_t num_nonzero = 0;
         CRFPP::LBFGS lbfgs;
         int flag = -1;  // 0: success 1: failure
         size_t itr;
@@ -130,18 +128,39 @@ int main(int argc, char *argv[]) {
         for (itr = 0; itr < maxiter; ++itr) {
             double obj = 0.0;
             std::fill(g.begin(), g.end(), 0.0);
-            if (0 != itr) {  // gather partial gradient and obj from workers
+            if (0 != itr) {
+                // gather partial gradient and obj from workers
                 for (int i = 1; i < size; ++i) {
-                    std::cout << "[master] itr:" << itr << ", recv from worker " << i << " ...\n";
+                    if (debug) {
+                        std::cout << "[master] itr:" << itr << ", recv from worker " << i << " ...\n";
+                    }
                     comm->RecvGradientObjFromWorker(workers_info, i, &g[0], &obj, rank_2_part);
-                    std::cout << "[master] itr:" << itr << ", recv from worker " << i << " complete\n";
+                    if (debug) {
+                        std::cout << "[master] itr:" << itr << ", recv from worker " << i << " complete\n";
+                    }
+                }
+                // add regularization
+                num_nonzero = 0;
+                if (orthant) {  // L1 regularization
+                    for (size_t k = 0; k < feature_function_num; ++k) {
+                        obj += std::abs(w[k] / C);
+                        if (w[k] != 0.0) {
+                            ++num_nonzero;
+                        }
+                    }
+                } else {  // L2 regularization
+                    num_nonzero = feature_function_num;
+                    for (size_t k = 0; k < feature_function_num; ++k) {
+                        obj += (w[k] * w[k] / (2.0 * C));
+                        g[k] += w[k] / C;
+                    }
                 }
                 // calc obj diff to determine whether to stop
-                double diff = (itr == 0 ? 1.0 :
-                        std::abs(old_obj - obj) / old_obj);
-                std::cout << "iter="  << itr
+                double diff = (itr == 0 ? 1.0 : std::abs(old_obj - obj) / old_obj);
+                std::cout << "iter=" << itr
+                    << " act=" << num_nonzero
                     << " obj=" << obj
-                    << " diff="  << diff << std::endl;
+                    << " diff=" << diff << std::endl;
                 old_obj = obj;
 
                 if (diff < eta) {
@@ -153,34 +172,36 @@ int main(int argc, char *argv[]) {
                 if (converge == 3) {
                     flag = 0;
                     comm->SetFlag();
-                    std::cout << "[master] flag:" << comm->GetFlag() << "\n";
                     comm->Bcast();
                     break;  // 3 is ad-hoc
                 }
                 // update w using lbfgs
-                std::cout << "b_lbfgs[g]: ";
-                for (size_t i = 0; i < 12; ++i) {
-                    std::cout << std::fixed << std::setprecision(9) << g[i] << ',';
+                if (debug) {
+                    std::cout << "b_lbfgs[g]: ";
+                    for (size_t i = 0; i < SPY_NUM; ++i) {
+                        std::cout << std::fixed << std::setprecision(9) << g[i] << ',';
+                    }
+                    std::cout << std::endl;
+                    std::cout << "b_lbfgs[w]: ";
+                    for (size_t i = 0; i < SPY_NUM; ++i) {
+                        std::cout << std::fixed << std::setprecision(9) << w[i] << ',';
+                    }
+                    std::cout << std::endl;
                 }
-                std::cout << std::endl;
-                std::cout << "b_lbfgs[w]: ";
-                for (size_t i = 0; i < 12; ++i) {
-                    std::cout << std::fixed << std::setprecision(9) << w[i] << ',';
-                }
-                std::cout << std::endl;
                 int ret = lbfgs.optimize(feature_function_num,
                         &w[0],
                         obj,
                         &g[0], orthant, C);
-                std::cout << "a_lbfgs[w]: ";
-                for (size_t i = 0; i < 12; ++i) {
-                    std::cout << std::fixed << std::setprecision(9) << w[i] << ',';
+                if (debug) {
+                    std::cout << "a_lbfgs[w]: ";
+                    for (size_t i = 0; i < SPY_NUM; ++i) {
+                        std::cout << std::fixed << std::setprecision(9) << w[i] << ',';
+                    }
+                    std::cout << std::endl;
                 }
-                std::cout << std::endl;
                 if (ret <= 0) {
                     flag = 1;
                     comm->SetFlag();
-                    std::cout << "[master] flag:" << comm->GetFlag() << "\n";
                     comm->Bcast();
                     break;
                 }
@@ -188,29 +209,35 @@ int main(int argc, char *argv[]) {
             comm->Bcast();
             // send weight to workers
             for (int i = 1; i < size; ++i) {
-                std::cout << "[master] itr:" << itr << ", send to worker " << i << " ...\n";
+                if (debug) {
+                    std::cout << "[master] itr:" << itr << ", send to worker " << i << " ...\n";
+                }
                 comm->SendWeightToWorker(&w[0], workers_info[rank_2_part[i]], i, orthant);
-                std::cout << "[master] itr:" << itr << ", send to worker " << i << " complete\n";
+                if (debug) {
+                    std::cout << "[master] itr:" << itr << ", send to worker " << i << " complete\n";
+                }
             }
         }
-        std::cout << "[master] itr:" << itr << ", maxiter:" << maxiter << ", flag:" << flag << "\n";
+        if (debug) {
+            std::cout << "[master] itr:" << itr << ", maxiter:" << maxiter << ", flag:" << flag << "\n";
+        }
         if (0 == flag || itr >= maxiter) {  // success: output parameters
-//            for (size_t i = 0; i < w.size(); ++i) {
-//                std::cout << w[i] << std::endl;
-//            }
+            std::ofstream ofs(rest[2].c_str());
+            ofs.setf(std::ios::fixed, std::ios::floatfield);
+            ofs.precision(16);
+            for (size_t i = 0; i < w.size(); ++i) {
+                ofs << w[i] << std::endl;
+            }
+            ofs.close();
             goto SUCC_EXIT;
         } else {
             goto FAIL_EXIT;
         }
     } else {  // worker
-        // TODO: fix me
-        std::vector<std::string> y;
-        y.push_back("B");
-        y.push_back("E");
-        y.push_back("I");
-        y.push_back("O");
         CRFPP::Encoder encoder;
         encoder.setMpiComm(comm);
+        std::vector<std::string> y;
+        loadLabels(rest[3].c_str(), y);
         if (!encoder.learn(rest[0].c_str(),
                     rest[1].c_str(),
                     rest[2].c_str(),
@@ -237,10 +264,11 @@ SUCC_EXIT:
     return 0;
 }
 
-bool loadFeatureIDMap(std::vector<WorkerInfo> &workers_info, uint32_t &total_function_num) {
-    std::ifstream ifs("/data/share/johnxuan/crf/features_map");
+bool loadFeatureIDMap(const char *file, std::vector<WorkerInfo> &workers_info,
+        uint32_t &total_function_num) {
+    std::ifstream ifs(file);
     if (!ifs.is_open()) {
-        std::cerr << "Open feature id map failed" << std::endl;
+        std::cerr << "Open feature id map file [" << file << "] failed\n";
         return false;
     }
 
@@ -293,6 +321,29 @@ bool loadFeatureIDMap(std::vector<WorkerInfo> &workers_info, uint32_t &total_fun
     for (std::map<uint32_t, uint8_t>::iterator it = function_info.begin();
             it != function_info.end(); ++it) {
         total_function_num += it->second;
+    }
+
+    return true;
+}
+
+bool loadLabels(const char *file, std::vector<std::string> &labels) {
+    std::ifstream ifs(file);
+    if (!ifs.is_open()) {
+        std::cerr << "Open label file [" << file << "] failed\n";
+        return false;
+    }
+
+    std::string line;
+    std::set<std::string> data;
+    while (getline(ifs, line)) {
+        data.insert(line);
+    }
+    ifs.close();
+
+    labels.clear();
+    for (std::set<std::string>::iterator it = data.begin();
+            it != data.end(); ++it) {
+        labels.push_back(*it);
     }
 
     return true;

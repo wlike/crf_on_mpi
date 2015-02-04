@@ -180,15 +180,23 @@ bool runCRF(const std::vector<TaggerImpl* > &x,
   for (size_t itr = 0; itr < maxitr; ++itr) {
 #ifdef USE_MPI
     comm->Bcast();
-    std::cout << "[worker] itr:" << itr << ", flag:" << comm->GetFlag() << "\n";
+    if (comm->IsDebug()) {
+      std::cout << "[worker] itr:" << itr << ", stop_flag:" << comm->GetFlag() << "\n";
+    }
     if (1 == comm->GetFlag()) break;
-    std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", recv weight from master ...\n";
+    if (comm->IsDebug()) {
+      std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", recv weight from master ...\n";
+    }
     if (!comm->RecvWeightFromMaster(orthant, feature_index->size(),
                 feature_index->alpha())) {
-      std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", recv weight from master failed\n";
+      if (comm->IsDebug()) {
+        std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", recv weight from master failed\n";
+      }
       return false;
     }
-    std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", recv weight from master complete\n";
+    if (comm->IsDebug()) {
+      std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", recv weight from master complete\n";
+    }
 #endif  // USE_MPI
     for (size_t i = 0; i < thread_num; ++i) {
       thread[i].start();
@@ -210,6 +218,7 @@ bool runCRF(const std::vector<TaggerImpl* > &x,
       }
     }
 
+#ifndef USE_MPI
     size_t num_nonzero = 0;
     if (orthant) {  // L1 regularization
       for (size_t k = 0; k < feature_index->size(); ++k) {
@@ -226,7 +235,6 @@ bool runCRF(const std::vector<TaggerImpl* > &x,
       }
     }
 
-#ifndef USE_MPI
     double diff = (itr == 0 ? 1.0 :
                    std::abs(old_obj - thread[0].obj) / old_obj);
     std::cout << "iter="  << itr
@@ -272,13 +280,19 @@ bool runCRF(const std::vector<TaggerImpl* > &x,
       return false;
     }
 #else
-    std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", send to master ...\n";
+    if (comm->IsDebug()) {
+      std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", send to master ...\n";
+    }
     if (!comm->SendGradientObjToMaster(&thread[0].expected[0],
                 feature_index->size(), thread[0].obj, data_part)) {
-      std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", send to master failed\n";
+      if (comm->IsDebug()) {
+        std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", send to master failed\n";
+      }
       return false;
     }
-    std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", send to master complete\n";
+    if (comm->IsDebug()) {
+      std::cout << "[worker] itr:" << itr << ", data_part:" << (int)data_part << ", send to master complete\n";
+    }
 #endif  // USE_MPI
   }
 
