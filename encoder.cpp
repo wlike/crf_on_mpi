@@ -467,7 +467,7 @@ namespace {
 const CRFPP::Option long_options[] = {
   {"freq",     'f', "1",      "INT",
    "use features that occuer no less than INT(default 1)" },
-  {"maxiter" , 'm', "100000", "INT",
+  {"maxiter" , 'm', "10000", "INT",
    "set INT for max iterations in LBFGS routine(default 10k)" },
   {"cost",     'c', "1.0",    "FLOAT",
    "set FLOAT for cost parameter(default 1.0)" },

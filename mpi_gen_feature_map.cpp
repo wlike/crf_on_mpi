@@ -14,8 +14,8 @@ using namespace CRFPP;
 bool readFile(const char *template_file, const char *train_file,
         EncoderFeatureIndex *index, bool is_part);
 void genFeatureIDMap(std::ofstream *ofs, int part_id, int cls_num,
-        const std::map<std::string, std::pair<int, unsigned int> > &total,
-        const std::map<std::string, std::pair<int, unsigned int> > &part);
+        const std::map<std::string, FeatureInfo> &total,
+        const std::map<std::string, FeatureInfo> &part);
 
 std::vector<std::string> y;
 
@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
         std::cerr << "Read file [" << argv[1] << "] failed!\n";
         return -1;
     }
-    const std::map<std::string, std::pair<int, unsigned int> > &features =
+    const std::map<std::string, FeatureInfo> &features =
         feature_index.getFeatureIndex();
     y = feature_index.getY();
 
@@ -48,10 +48,12 @@ int main(int argc, char *argv[]) {
             std::cerr << "Read file [" << file_name << "] failed!\n";
             return -1;
         }
-        genFeatureIDMap(&ofs, i, feature_index.ysize(),
-                features, feature_index_part.getFeatureIndex());
+        genFeatureIDMap(&ofs, i, feature_index.ysize(), features,
+                feature_index_part.getFeatureIndex());
     }
     ofs.close();
+
+    std::cout << "Total feature function number: " << feature_index.size() << std::endl;
 
     return 0;
 }
@@ -108,16 +110,17 @@ bool readFile(const char *template_file, const char *train_file,
 }
 
 void genFeatureIDMap(std::ofstream *ofs, int part_id, int cls_num,
-        const std::map<std::string, std::pair<int, unsigned int> > &total,
-        const std::map<std::string, std::pair<int, unsigned int> > &part) {
-    typedef std::map<std::string, std::pair<int, unsigned int> >::const_iterator map_cit;
+        const std::map<std::string, FeatureInfo> &total,
+        const std::map<std::string, FeatureInfo> &part) {
+    typedef std::map<std::string, FeatureInfo>::const_iterator map_cit;
 
     int feature_function_num = 0;
     for (map_cit it = part.begin(); it != part.end(); ++it) {
-        if ('U' == it->first[0]) feature_function_num = cls_num;
-        else if ('B' == it->first[0]) feature_function_num = cls_num * cls_num;
+        const char *feature = it->first.c_str();
+        if ('U' == feature[0]) feature_function_num = cls_num;
+        else if ('B' == feature[0]) feature_function_num = cls_num * cls_num;
         map_cit in_it = total.find(it->first);
-        (*ofs) << part_id << '\t' << it->second.first << '\t'
-            << in_it->second.first << '\t' << feature_function_num << std::endl;
+        (*ofs) << part_id << '\t' << it->second.id_ << '\t'
+            << in_it->second.id_ << '\t' << feature_function_num << std::endl;
     }
 }

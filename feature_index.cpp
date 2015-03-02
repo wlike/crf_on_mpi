@@ -108,18 +108,17 @@ int DecoderFeatureIndex::getID(const char *key) const {
 }
 
 int EncoderFeatureIndex::getID(const char *key) const {
-  std::map <std::string, std::pair<int, unsigned int> >::iterator
+  std::map<std::string, FeatureInfo>::iterator
       it = dic_.find(key);
   if (it == dic_.end()) {
-    dic_.insert(std::make_pair
-                (std::string(key),
-                 std::make_pair(maxid_, static_cast<unsigned int>(1))));
+    FeatureInfo fi(maxid_, 1);
+    dic_.insert(std::make_pair(key, fi));
     const int n = maxid_;
     maxid_ += (key[0] == 'U' ? y_.size() : y_.size() * y_.size());
     return n;
   } else {
-    it->second.second++;
-    return it->second.first;
+    it->second.freq_++;
+    return it->second.id_;
   }
   return -1;
 }
@@ -191,15 +190,15 @@ bool EncoderFeatureIndex::openTagSet(const char *filename) {
 
 void EncoderFeatureIndex::dump() {
   std::cout << "feature_num: " << dic_.size() << std::endl;
-  for (std::map<std::string, std::pair<int, unsigned int> >::iterator
+  for (std::map<std::string, FeatureInfo>::iterator
       it = dic_.begin(); it != dic_.end(); ++it) {
-    std::cout << "[" << it->first << "],(" << it->second.first
-      << ',' << it->second.second << ")\n";
+    std::cout << "[" << it->first << "],(" << it->second.id_
+      << ',' << it->second.freq_ << ")\n";
   }
 }
 
 #ifdef USE_MPI
-const std::map<std::string, std::pair<int, unsigned int> > &EncoderFeatureIndex::getFeatureIndex() {
+const std::map<std::string, FeatureInfo> &EncoderFeatureIndex::getFeatureIndex() {
     return dic_;
 }
 
@@ -283,13 +282,13 @@ void EncoderFeatureIndex::shrink(size_t freq, Allocator *allocator) {
   std::map<int, int> old2new;
   int new_maxid = 0;
 
-  for (std::map<std::string, std::pair<int, unsigned int> >::iterator
+  for (std::map<std::string, FeatureInfo>::iterator
            it = dic_.begin(); it != dic_.end();) {
-    const std::string &key = it->first;
+    const char *key = it->first.c_str();
 
-    if (it->second.second >= freq) {
-      old2new.insert(std::make_pair(it->second.first, new_maxid));
-      it->second.first = new_maxid;
+    if (it->second.freq_ >= freq) {
+      old2new.insert(std::make_pair(it->second.id_, new_maxid));
+      it->second.id_ = new_maxid;
       new_maxid += (key[0] == 'U' ? y_.size() : y_.size() * y_.size());
       ++it;
     } else {
@@ -369,6 +368,7 @@ bool EncoderFeatureIndex::convert(const char *text_filename,
     }
   }
 
+  FeatureInfo fi;
   while (true) {
     CHECK_FALSE(ifs.getline(line.get(), line.size()))
         << "format error: " << text_filename;
@@ -379,10 +379,8 @@ bool EncoderFeatureIndex::convert(const char *text_filename,
     const size_t size = tokenize(line.get(), "\t ", column, 2);
     CHECK_FALSE(size == 2) << "format error: " << text_filename;
 
-    dic_.insert(std::make_pair
-                (std::string(column[1]),
-                 std::make_pair(std::atoi(column[0]),
-                                static_cast<unsigned int>(1))));
+    fi.set(std::atoi(column[0]), 1);
+    dic_.insert(std::make_pair(column[1], fi));
   }
 
   std::vector<double> alpha;
@@ -396,7 +394,6 @@ bool EncoderFeatureIndex::convert(const char *text_filename,
 
   return save(binary_filename, false);
 }
-
 
 bool EncoderFeatureIndex::save(const char *filename,
                                bool textmodelfile) {
@@ -424,11 +421,10 @@ bool EncoderFeatureIndex::save(const char *filename,
     templ_str += '\0';
   }
 
-  for (std::map<std::string, std::pair<int, unsigned int> >::iterator
-           it = dic_.begin();
-       it != dic_.end(); ++it) {
+  for (std::map<std::string, FeatureInfo>::iterator
+          it = dic_.begin(); it != dic_.end(); ++it) {
     key.push_back(const_cast<char *>(it->first.c_str()));
-    val.push_back(it->second.first);
+    val.push_back(it->second.id_);
   }
 
   Darts::DoubleArray da;
@@ -505,10 +501,9 @@ bool EncoderFeatureIndex::save(const char *filename,
     tofs << std::endl;
 
     // dic
-    for (std::map<std::string, std::pair<int, unsigned int> >::iterator
-             it = dic_.begin();
-         it != dic_.end(); ++it) {
-      tofs << it->second.first << " " << it->first << std::endl;
+    for (std::map<std::string, FeatureInfo>::iterator
+            it = dic_.begin(); it != dic_.end(); ++it) {
+      tofs << it->second.id_ << " " << it->first << std::endl;
     }
 
     tofs << std::endl;

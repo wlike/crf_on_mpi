@@ -123,7 +123,7 @@ bool MpiComm::RecvWeightFromMaster(bool orthant, uint32_t target_num, double *w)
         oss << "[worker][RecvWeightFromMaster] target_num:" << target_num << ", orthant:" << orthant << "\n";
     }
     int char_num = 0;
-    MPI_Recv(m_buffer, kMaxBufferSize, MPI_CHAR, kMasterRank, kMsgTag, MPI_COMM_WORLD, &m_status);
+    MPI_Recv(m_buffer, m_buffer_size, MPI_CHAR, kMasterRank, kMsgTag, MPI_COMM_WORLD, &m_status);
     if (m_debug) {
         oss << "[worker][RecvWeightFromMaster] target_num:" << target_num << ", recv return\n";
     }
@@ -191,7 +191,7 @@ bool MpiComm::RecvGradientObjFromWorker(const std::vector<WorkerInfo> &workers_i
         oss << "[master][RecvGradientObjFromWorker] worker_rank:" << worker_rank << "\n";
     }
     int char_num = 0;
-    MPI_Recv(m_buffer, kMaxBufferSize, MPI_CHAR, worker_rank, MPI_ANY_TAG, MPI_COMM_WORLD, &m_status);
+    MPI_Recv(m_buffer, m_buffer_size, MPI_CHAR, worker_rank, MPI_ANY_TAG, MPI_COMM_WORLD, &m_status);
     if (m_debug) {
         oss << "[master][RecvGradientObjFromWorker] worker_rank:" << worker_rank << ", recv return\n";
     }

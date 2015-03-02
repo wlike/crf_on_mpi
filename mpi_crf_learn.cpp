@@ -12,28 +12,30 @@
 
 namespace CRFPP {
 const Option long_options[] = {
-  {"freq",     'f', "1",      "INT",
-   "use features that occuer no less than INT(default 1)" },
-  {"maxiter" , 'm', "100000", "INT",
-   "set INT for max iterations in LBFGS routine(default 10k)" },
-  {"cost",     'c', "1.0",    "FLOAT",
-   "set FLOAT for cost parameter(default 1.0)" },
-  {"eta",      'e', "0.0001", "FLOAT",
-   "set FLOAT for termination criterion(default 0.0001)" },
-  {"convert",  'C',  0,       0,
-   "convert text model to binary model" },
-  {"textmodel", 't', 0,       0,
-   "build also text model file for debugging" },
-  {"algorithm",  'a', "CRF",   "(CRF|MIRA)", "select training algorithm" },
-  {"thread", 'p',   "0",       "INT",
-   "number of threads (default auto-detect)" },
-  {"shrinking-size", 'H', "20", "INT",
-   "set INT for number of iterations variable needs to "
-   "be optimal before considered for shrinking. (default 20)" },
-  {"debug",    'd', 0,        0,       "print detail training info" },
-  {"version",  'v', 0,        0,       "show the version and exit" },
-  {"help",     'h', 0,        0,       "show this help and exit" },
-  {0, 0, 0, 0, 0}
+    {"freq",     'f', "1",      "INT",
+        "use features that occuer no less than INT(default 1)" },
+    {"maxiter" , 'm', "10000", "INT",
+        "set INT for max iterations in LBFGS routine(default 10k)" },
+    {"cost",     'c', "1.0",    "FLOAT",
+        "set FLOAT for cost parameter(default 1.0)" },
+    {"eta",      'e', "0.0001", "FLOAT",
+        "set FLOAT for termination criterion(default 0.0001)" },
+    {"convert",  'C',  0,       0,
+        "convert text model to binary model" },
+    {"textmodel", 't', 0,       0,
+        "build also text model file for debugging" },
+    {"algorithm",  'a', "CRF",   "(CRF|MIRA)", "select training algorithm" },
+    {"thread", 'p',   "0",       "INT",
+        "number of threads (default auto-detect)" },
+    {"shrinking-size", 'H', "20", "INT",
+        "set INT for number of iterations variable needs to "
+            "be optimal before considered for shrinking. (default 20)" },
+    {"feature-function-number", 'N', "10000000", "INT",
+        "total feature function number. (default 10000000)" },
+    {"debug",    'd', 0,        0,       "print detail training info" },
+    {"version",  'v', 0,        0,       "show the version and exit" },
+    {"help",     'h', 0,        0,       "show this help and exit" },
+    {0, 0, 0, 0, 0}
 };
 }  // namespace CRFPP
 
@@ -58,6 +60,7 @@ int main(int argc, char *argv[]) {
         CRFPP::getThreadSize(param.get<unsigned short>("thread"));
     const unsigned short shrinking_size =
         param.get<unsigned short>("shrinking-size");
+    const uint64_t N = param.get<uint64_t>("feature-function-number");
     const std::vector<std::string> &rest = param.rest_args();
     std::string salgo = param.get<std::string>("algorithm");
 
@@ -92,7 +95,7 @@ int main(int argc, char *argv[]) {
     else std::cout << " [worker]\n";
 
     // create MPI communicator
-    MpiComm *comm = new MpiComm(debug);
+    MpiComm *comm = new MpiComm(N, debug);
 
     if (0 == rank) {  // master
         // load worker's info: feature id map

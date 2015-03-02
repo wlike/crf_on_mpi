@@ -124,5 +124,11 @@ bool SplitCorpus(const char *file, int part_num,
         delete ofs[i];
     }
 
+    // generate the blank part
+    oss.str("");
+    oss << file << "_" << part_num;
+    std::ofstream bofs(oss.str().c_str());
+    bofs.close();
+
     return true;
 }

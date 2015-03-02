@@ -9,9 +9,11 @@
 
 class MpiComm {
 public:
-    MpiComm(bool debug) : m_buffer(NULL), m_flag(0), m_debug(debug) {
-        m_buffer = new char [kMaxBufferSize];
-        memset(m_buffer, 0, kMaxBufferSize);
+    MpiComm(uint64_t feature_function_num, bool debug)
+        : m_buffer(NULL), m_buffer_size(feature_function_num * 8),
+          m_flag(0), m_debug(debug) {
+        m_buffer = new char [m_buffer_size];
+        memset(m_buffer, 0, m_buffer_size);
     }
 
     ~MpiComm() {
@@ -39,12 +41,12 @@ public:
 private:
     MPI_Status m_status;
     char *m_buffer;
+    uint64_t m_buffer_size;
     int m_flag;  // whether to stop
     bool m_debug;  // whether to print detail training info
 
     static const uint32_t kMsgTag = 1;
     static const uint32_t kMasterRank = 0;
-    static const uint32_t kMaxBufferSize = 10000000 * 8;
 };
 
 #endif  // MPI_COMM_H_

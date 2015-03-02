@@ -10,7 +10,7 @@ INC = -I. -I..
 DEL = del
 
 OBJ = encoder.obj feature.obj feature_cache.obj libcrfpp.obj \
-      feature_index.obj node.obj param.obj path.obj tagger.obj lbfgs.obj
+      feature_index.obj node.obj param.obj path.obj tagger.obj lbfgs.obj md5.obj
 
 .c.obj:
 	$(CXXC) $(CFLAGS) $(INC) $(DEFS) -c $<

@@ -62,7 +62,10 @@ inline size_t getCpuCount() {
   result = si.dwNumberOfProcessors;
 #else
 #ifdef HAVE_SYS_CONF_SC_NPROCESSORS_CONF
-  const long n = sysconf(_SC_NPROCESSORS_CONF);
+  // use ONLN rather than CONF, because the first one means
+  // number of avaliable processors, the second one means
+  // number of configured processors
+  const long n = sysconf(_SC_NPROCESSORS_ONLN);
   if (n == -1) {
     return 1;
   }

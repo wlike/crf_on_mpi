@@ -8,9 +8,9 @@
 #ifndef CRFPP_FEATURE_INDEX_H_
 #define CRFPP_FEATURE_INDEX_H_
 
-#include <vector>
-#include <map>
 #include <iostream>
+#include <map>
+#include <vector>
 #include "common.h"
 #include "scoped_ptr.h"
 #include "feature_cache.h"
@@ -109,6 +109,20 @@ class FeatureIndex {
   whatlog                   what_;
 };
 
+struct FeatureInfo {
+  // start id of 'feature function' associated with current 'feature'
+  int id_;
+  // feature frequence
+  unsigned int freq_;
+
+  FeatureInfo() : id_(-1), freq_(0) {}
+  FeatureInfo(int id, unsigned int freq) : id_(id), freq_(freq) {}
+  void set(int id, unsigned int freq) {
+    id_ = id;
+    freq_ = freq;
+  }
+};
+
 class EncoderFeatureIndex: public FeatureIndex {
  public:
   bool open(const char *template_filename,
@@ -120,18 +134,15 @@ class EncoderFeatureIndex: public FeatureIndex {
   void dump();
 #ifdef USE_MPI
   void clear();
-  const std::map<std::string, std::pair<int, unsigned int> > &getFeatureIndex();
+  const std::map<std::string, FeatureInfo> &getFeatureIndex();
 #endif  // USE_MPI
 
  private:
   int getID(const char *str) const;
   bool openTemplate(const char *filename);
   bool openTagSet(const char *filename);
-  // key: 'feature'
-  // value:
-  //   first: start id of 'feature function' associated with current 'feature'
-  //   second: frequence
-  mutable std::map<std::string, std::pair<int, unsigned int> > dic_;
+  // key: 'feature' text, value: feature info
+  mutable std::map<std::string, FeatureInfo> dic_;
 };
 
 class DecoderFeatureIndex: public FeatureIndex {
